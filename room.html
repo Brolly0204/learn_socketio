@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link href="https://cdn.bootcss.com/twitter-bootstrap/3.3.1/css/bootstrap.css" rel="stylesheet">
+  <title>Document</title>
+  <style>
+    .container {
+      margin-top: 30px;
+    }
+    .user {
+      color: green;
+    }
+    .hide {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col-md-12">
+        <div class="panel panel-default">
+          <div class="panel-heading">
+            <h3 class="text-center">欢迎来到珠峰聊天室</h3>
+            <div class="row">
+              <div class="col-md-6 text-center">
+                <button id="joinred" class="btn btn-danger" onclick="join('red')">进入红房间</button>
+                <button id="leavered" class="btn btn-danger" style="display: none;" onclick="leave('red')">退出红房间</button>
+              </div>
+              <div class="col-md-6 text-center">
+                <button id="joingreen" class="btn btn-success" onclick="join('green')">进入绿房间</button>
+                <button id="leavegreen" class="btn btn-success" style="display: none;" onclick="leave('green')">退出绿房间</button>
+              </div>
+            </div>
+          </div>
+          <div id="panelBox" class="panel-body" style="height: 500px; overflow-y: auto;">
+            <ul id="messageBox" class="list-group" onclick="chooseuser(event)">
+
+            </ul>
+          </div>
+          <div class="panel-footer">
+            <div class="row">
+              <div class="col-md-10">
+                <input type="text" class="form-control" id="textMsg">
+              </div>
+              <div class="col-md-2 text-right">
+                <button class="btn btn-primary" onclick="send(event)">发送</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="socket.io/socket.io.js" charset="utf-8"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/moment.min.js" charset="utf-8"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.24.0/locale/zh-cn.js" charset="utf-8"></script>
+  <script type="text/javascript">
+    const socket = io.connect('/')
+
+    const textMsg = document.getElementById('textMsg')
+    const messageBox = document.getElementById('messageBox')
+    const panelBox = document.getElementById('panelBox')
+
+    socket.on('connect', () => {
+      socket.send('我是客户端')
+      socket.emit('getAllMessage')
+    })
+
+    socket.on('allMessage', (messages) => {
+      let html = messages.map(message => {
+        return `<li class="list-group-item"><span class="user">${message.username}</span>: ${message.content}  <span class='text-right'>${moment(message.createAt).fromNow()}</span>
+          </li>`
+      }).join('')
+      messageBox.innerHTML = html
+    })
+
+    socket.on('message', (data) => {
+      console.log(data)
+    })
+
+    socket.on('disconnect', () => {
+      console.log('已经断开连接')
+    })
+
+    textMsg.onkeydown = function(e) {
+      if (e.keyCode === 13) {
+        send()
+      }
+    }
+
+    // socket.send(data) 等价于 socket.emit('message', data)
+    function send(e) {
+      let message = textMsg.value
+      if (message) {
+        socket.emit('chat', message)
+        textMsg.value = ''
+      } else {
+        alert('发送消息 不能为空！')
+      }
+    }
+
+    function chooseuser(event) {
+      if (event.target.className.toLowerCase() === 'user') {
+        let val = event.target.innerText
+        textMsg.value = `@${val} `
+      }
+    }
+
+    function join(roomName) {
+      socket.emit('join', roomName)
+      socket.emit('room', roomName)
+    }
+
+    function leave(roomName) {
+      socket.emit('leave', roomName)
+      socket.emit('room', roomName)
+    }
+
+    socket.on('receive', (message) => {
+      const {
+        username,
+        content,
+        createAt
+      } = message
+      const li = document.createElement('li')
+      li.innerHTML = `<span class="user">${username}</span>: ${content} <span class='text-right'>${moment(createAt).fromNow()}</span>`
+      li.className = 'list-group-item'
+      messageBox.appendChild(li)
+      panelBox.scrollTop = panelBox.scrollHeight
+    })
+
+    socket.on('joined', roomname => {
+      const joinBtn = document.getElementById(`join${roomname}`)
+      const leaveBtn = document.getElementById(`leave${roomname}`)
+      joinBtn.style.display = 'none'
+      leaveBtn.style.display = 'inline-block'
+    })
+
+    socket.on('leave', roomname => {
+      const joinBtn = document.getElementById(`join${roomname}`)
+      const leaveBtn = document.getElementById(`leave${roomname}`)
+      joinBtn.style.display = 'inline-block'
+      leaveBtn.style.display = 'none'
+    })
+
+    socket.on('peopleNum', count => {
+      console.log(count)
+    })
+  </script>
+</body>
+
+</html>
